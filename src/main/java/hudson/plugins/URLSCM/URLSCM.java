@@ -9,6 +9,7 @@ import hudson.model.BuildListener;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.scm.ChangeLogParser;
+import hudson.scm.NullChangeLogParser;
 import hudson.scm.SCM;
 import hudson.scm.SCMDescriptor;
 import hudson.util.FormFieldValidator;
@@ -83,13 +84,14 @@ public class URLSCM extends hudson.scm.SCM {
 				if (os != null) os.close();
 			}
 			build.addAction(dates);
+			this.createEmptyChangeLog(changelogFile, listener, "log");
 		}
 		return true;
 	}
 
 	@Override
 	public ChangeLogParser createChangeLogParser() {
-		return null;
+		return new NullChangeLogParser();
 	}
 
 	@Override
