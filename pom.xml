@@ -1,10 +1,17 @@
 <project>
   <modelVersion>4.0.0</modelVersion>
-  
-  <groupId>hudson.plugins</groupId>
+  <parent>
+    <groupId>org.jvnet.hudson.plugins</groupId>
+    <artifactId>plugin</artifactId>
+    <version>1.211</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
   <artifactId>URLSCM</artifactId>
   <packaging>hpi</packaging>
   <version>1.0-SNAPSHOT</version>
+  <name>URL SCM plugin</name>
+  <description>Allows specification of URLs to poll and copy into the workspace</description>
   
   <dependencies>
     <!--
