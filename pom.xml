@@ -42,8 +42,9 @@
     </plugins>
   </build>
   <scm>
-    <connection>scm:svn:https://hudson.dev.java.net/svn/hudson/trunk/hudson/plugins/URLSCM</connection>
-    <developerConnection>scm:svn:https://hudson.dev.java.net/svn/hudson/trunk/hudson/plugins/URLSCM</developerConnection>
+    <connection>scm:svn:https://svn.dev.java.net/svn/hudson/trunk/hudson/plugins/URLSCM</connection>
+    <developerConnection>scm:svn:https://svn.dev.java.net/svn/hudson/trunk/hudson/plugins/URLSCM</developerConnection>
+    <url>https://hudson.dev.java.net/source/browse/hudson/hudson/plugins/URLSCM</url>
   </scm>
   <repositories>
     <!-- We put the central repository first, as most artifacts will be
