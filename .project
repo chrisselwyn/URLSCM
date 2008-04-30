@@ -1,6 +1,6 @@
 <projectDescription>
   <name>URLSCM</name>
-  <comment/>
+  <comment>Allows specification of URLs to poll and copy into the workspace</comment>
   <projects/>
   <buildSpec>
     <buildCommand>

@@ -64,6 +64,7 @@ public class URLSCM extends hudson.scm.SCM {
 			try {
 				URL url = new URL(urlString);
 				URLConnection conn = url.openConnection();
+				conn.setUseCaches(false);
 				dates.setLastModified(urlString, conn.getLastModified());
 				is = conn.getInputStream();
 				String path = new File(url.getPath()).getName();
@@ -100,6 +101,13 @@ public class URLSCM extends hudson.scm.SCM {
 	}
 
 	@Override
+	public boolean requiresWorkspaceForPolling() {
+		// this plugin does the polling work via the data in the Run
+		// the data in the workspace is not used
+		return false;
+	}
+
+	@Override
 	public boolean pollChanges(AbstractProject project, Launcher launcher,
 			FilePath workspace, TaskListener listener) throws IOException,
 			InterruptedException {
@@ -114,10 +122,14 @@ public class URLSCM extends hudson.scm.SCM {
 			try {
 				URL url = new URL(urlString);
 				URLConnection conn = url.openConnection();
+				conn.setUseCaches(false);
 				
 				long lastMod = conn.getLastModified();
-				if(dates.getLastModified(urlString) != lastMod) {
-					listener.getLogger().println("Found change: " + urlString + " last modified " + new Date(conn.getLastModified()));
+				long lastBuildMod = dates.getLastModified(urlString);
+				if(lastBuildMod != lastMod) {
+					listener.getLogger().println(
+							"Found change: " + urlString + " modified " + new Date(lastMod) + 
+							" previous modification was " + new Date(lastBuildMod));
 					change = true;
 				}
 			} 
