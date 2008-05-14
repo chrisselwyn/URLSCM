@@ -5,7 +5,7 @@ import hudson.scm.SCMS;
 
 /**
  * @author Michael Donohue
- * @Plugin
+ * @plugin
  */
 public class PluginImpl extends Plugin {
     public void start() throws Exception {

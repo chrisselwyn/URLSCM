@@ -55,7 +55,7 @@ public class URLSCM extends hudson.scm.SCM {
 			workspace.deleteContents();
 		}
 		
-		URLDateAction dates = new URLDateAction();
+		URLDateAction dates = new URLDateAction(build);
 		
 		for(URLTuple tuple : urls) {
 			String urlString = tuple.getUrl();
@@ -84,9 +84,10 @@ public class URLSCM extends hudson.scm.SCM {
 				if (is != null) is.close();
 				if (os != null) os.close();
 			}
-			build.addAction(dates);
 			this.createEmptyChangeLog(changelogFile, listener, "log");
 		}
+		build.addAction(dates);
+
 		return true;
 	}
 
