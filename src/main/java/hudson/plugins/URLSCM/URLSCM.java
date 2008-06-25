@@ -177,10 +177,17 @@ public class URLSCM extends hudson.scm.SCM {
     			@Override
     			protected void check() throws IOException, ServletException {
     				String url = fixEmpty(request.getParameter("value"));
+    				URL u = null; 
     				try {
-    					open(new URL(url));
+    					u = new URL(url);
+    					open(u);
     				} catch (Exception e) {
     					error("Cannot open " + url);
+    					return;
+    				}
+    				String path = new File(u.getPath()).getName();
+    				if(path.length() == 0) {
+    					error("URL does not contain filename: " + url);
     					return;
     				}
     				ok();
