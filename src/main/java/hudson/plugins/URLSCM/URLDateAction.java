@@ -14,7 +14,6 @@ import org.kohsuke.stapler.StaplerResponse;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractModelObject;
 import hudson.model.Action;
-import hudson.scm.AbstractScmTagAction;
 
 public class URLDateAction extends AbstractModelObject implements Action {
 	/**

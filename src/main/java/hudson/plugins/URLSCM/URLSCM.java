@@ -1,18 +1,20 @@
 package hudson.plugins.URLSCM;
 
+import hudson.Extension;
 import static hudson.Util.fixEmpty;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
+import hudson.model.Hudson;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.scm.ChangeLogParser;
 import hudson.scm.NullChangeLogParser;
 import hudson.scm.SCM;
 import hudson.scm.SCMDescriptor;
-import hudson.util.FormFieldValidator;
+import hudson.util.FormValidation;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,8 +27,9 @@ import java.util.Date;
 
 import javax.servlet.ServletException;
 
+import net.sf.json.JSONObject;
+import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
-import org.kohsuke.stapler.StaplerResponse;
 
 public class URLSCM extends hudson.scm.SCM {
 	private final ArrayList<URLTuple> urls = new ArrayList<URLTuple>();
@@ -97,11 +100,6 @@ public class URLSCM extends hudson.scm.SCM {
 	}
 
 	@Override
-	public SCMDescriptor<?> getDescriptor() {
-		return DescriptorImpl.DESCRIPTOR;
-	}
-
-	@Override
 	public boolean requiresWorkspaceForPolling() {
 		// this plugin does the polling work via the data in the Run
 		// the data in the workspace is not used
@@ -151,11 +149,11 @@ public class URLSCM extends hudson.scm.SCM {
 			return urlString;
 		}
 	}
-	
-	public static final class DescriptorImpl extends SCMDescriptor<URLSCM> {
-        public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
 
-        private  DescriptorImpl() {
+	@Extension
+	public static final class DescriptorImpl extends SCMDescriptor<URLSCM> {
+
+        public DescriptorImpl() {
             super(URLSCM.class, null);
             load();
         }
@@ -164,35 +162,37 @@ public class URLSCM extends hudson.scm.SCM {
             return "URL Copy";
         }
 
-        public SCM newInstance(StaplerRequest req) throws FormException {
+        @Override
+        public SCM newInstance(StaplerRequest req, JSONObject formData) throws FormException {
             return new URLSCM(req.getParameterValues("URL.url"), req.getParameter("URL.clear") != null);
         }
 
-        public boolean configure(StaplerRequest req) throws FormException {
+        @Override
+        public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
             return true;
         }
         
-        public void doUrlCheck(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException {
-            new FormFieldValidator.URLCheck(req,rsp) {
-    			@Override
-    			protected void check() throws IOException, ServletException {
-    				String url = fixEmpty(request.getParameter("value"));
-    				URL u = null; 
-    				try {
-    					u = new URL(url);
-    					open(u);
-    				} catch (Exception e) {
-    					error("Cannot open " + url);
-    					return;
-    				}
-    				String path = new File(u.getPath()).getName();
-    				if(path.length() == 0) {
-    					error("URL does not contain filename: " + url);
-    					return;
-    				}
-    				ok();
-    			}
-            }.process();
+        public FormValidation doUrlCheck(@QueryParameter final String value)
+                throws IOException, ServletException {
+            if (!Hudson.getInstance().hasPermission(Hudson.ADMINISTER)) return FormValidation.ok();
+            return new FormValidation.URLCheck() {
+                @Override
+                protected FormValidation check() throws IOException, ServletException {
+                    String url = fixEmpty(value);
+                    URL u = null;
+                    try {
+                        u = new URL(url);
+                        open(u);
+                    } catch (Exception e) {
+                        return FormValidation.error("Cannot open " + url);
+                    }
+                    String path = new File(u.getPath()).getName();
+                    if(path.length() == 0) {
+                        return FormValidation.error("URL does not contain filename: " + url);
+                    }
+                    return FormValidation.ok();
+                }
+            }.check();
         }
     }
 
