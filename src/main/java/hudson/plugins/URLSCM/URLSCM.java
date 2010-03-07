@@ -32,126 +32,126 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 public class URLSCM extends hudson.scm.SCM {
-	private final ArrayList<URLTuple> urls = new ArrayList<URLTuple>();
-	private final boolean clearWorkspace;
-	
-	public URLSCM(String[] u, boolean clear) {
-		for(int i = 0; i < u.length; i++) {
-			urls.add(new URLTuple(u[i]));
-		}
-		this.clearWorkspace = clear;
-	}
-	
-	public URLTuple[] getUrls() {
-		return urls.toArray(new URLTuple[urls.size()]);
-	}
-	
-	public boolean isClearWorkspace() {
-		return clearWorkspace;
-	}
-	
-	@Override
-	public boolean checkout(AbstractBuild build, Launcher launcher,
-			FilePath workspace, BuildListener listener, File changelogFile)
-			throws IOException, InterruptedException {
-		if(clearWorkspace) {
-			workspace.deleteContents();
-		}
-		
-		URLDateAction dates = new URLDateAction(build);
-		
-		for(URLTuple tuple : urls) {
-			String urlString = tuple.getUrl();
-			InputStream is = null;
-			OutputStream os = null;
-			try {
-				URL url = new URL(urlString);
-				URLConnection conn = url.openConnection();
-				conn.setUseCaches(false);
-				dates.setLastModified(urlString, conn.getLastModified());
-				is = conn.getInputStream();
-				String path = new File(url.getPath()).getName();
-				listener.getLogger().append("Copying " + urlString + " to " + path + "\n");
-				os = workspace.child(path).write();
-				byte[] buf = new byte[8192];
-				int i = 0;
-				while ((i = is.read(buf)) != -1) {
-					os.write(buf, 0, i);
-				}
-			} 
-			catch (Exception e) {
-				listener.error("Unable to copy " + urlString + "\n" + e.getMessage());
-				return false;
-			}
-			finally {
-				if (is != null) is.close();
-				if (os != null) os.close();
-			}
-			this.createEmptyChangeLog(changelogFile, listener, "log");
-		}
-		build.addAction(dates);
+    private final ArrayList<URLTuple> urls = new ArrayList<URLTuple>();
+    private final boolean clearWorkspace;
 
-		return true;
-	}
+    public URLSCM(String[] u, boolean clear) {
+        for(int i = 0; i < u.length; i++) {
+            urls.add(new URLTuple(u[i]));
+        }
+        this.clearWorkspace = clear;
+    }
 
-	@Override
-	public ChangeLogParser createChangeLogParser() {
-		return new NullChangeLogParser();
-	}
+    public URLTuple[] getUrls() {
+        return urls.toArray(new URLTuple[urls.size()]);
+    }
 
-	@Override
-	public boolean requiresWorkspaceForPolling() {
-		// this plugin does the polling work via the data in the Run
-		// the data in the workspace is not used
-		return false;
-	}
+    public boolean isClearWorkspace() {
+        return clearWorkspace;
+    }
 
-	@Override
-	public boolean pollChanges(AbstractProject project, Launcher launcher,
-			FilePath workspace, TaskListener listener) throws IOException,
-			InterruptedException {
-		boolean change = false;
-		Run lastBuild = project.getLastBuild();
-		if(lastBuild == null) return true;
-		URLDateAction dates = lastBuild.getAction(URLDateAction.class);
-		if(dates == null) return true;
-		
-		for(URLTuple tuple : urls) {
-			String urlString = tuple.getUrl();
-			try {
-				URL url = new URL(urlString);
-				URLConnection conn = url.openConnection();
-				conn.setUseCaches(false);
-				
-				long lastMod = conn.getLastModified();
-				long lastBuildMod = dates.getLastModified(urlString);
-				if(lastBuildMod != lastMod) {
-					listener.getLogger().println(
-							"Found change: " + urlString + " modified " + new Date(lastMod) + 
-							" previous modification was " + new Date(lastBuildMod));
-					change = true;
-				}
-			} 
-			catch (Exception e) {
-				listener.error("Unable to check " + urlString + "\n" + e.getMessage());
-			} 
-		}
-		return change;
-	}
+    @Override
+    public boolean checkout(AbstractBuild build, Launcher launcher,
+            FilePath workspace, BuildListener listener, File changelogFile)
+    throws IOException, InterruptedException {
+        if(clearWorkspace) {
+            workspace.deleteContents();
+        }
 
-	public static final class URLTuple {
-		private String urlString;
-		public URLTuple(String s) {
-			urlString = s;
-		}
-		
-		public String getUrl() {
-			return urlString;
-		}
-	}
+        URLDateAction dates = new URLDateAction(build);
 
-	@Extension
-	public static final class DescriptorImpl extends SCMDescriptor<URLSCM> {
+        for(URLTuple tuple : urls) {
+            String urlString = tuple.getUrl();
+            InputStream is = null;
+            OutputStream os = null;
+            try {
+                URL url = new URL(urlString);
+                URLConnection conn = url.openConnection();
+                conn.setUseCaches(false);
+                dates.setLastModified(urlString, conn.getLastModified());
+                is = conn.getInputStream();
+                String path = new File(url.getPath()).getName();
+                listener.getLogger().append("Copying " + urlString + " to " + path + "\n");
+                os = workspace.child(path).write();
+                byte[] buf = new byte[8192];
+                int i = 0;
+                while ((i = is.read(buf)) != -1) {
+                    os.write(buf, 0, i);
+                }
+            } 
+            catch (Exception e) {
+                listener.error("Unable to copy " + urlString + "\n" + e.getMessage());
+                return false;
+            }
+            finally {
+                if (is != null) is.close();
+                if (os != null) os.close();
+            }
+            this.createEmptyChangeLog(changelogFile, listener, "log");
+        }
+        build.addAction(dates);
+
+        return true;
+    }
+
+    @Override
+    public ChangeLogParser createChangeLogParser() {
+        return new NullChangeLogParser();
+    }
+
+    @Override
+    public boolean requiresWorkspaceForPolling() {
+        // this plugin does the polling work via the data in the Run
+        // the data in the workspace is not used
+        return false;
+    }
+
+    @Override
+    public boolean pollChanges(AbstractProject project, Launcher launcher,
+            FilePath workspace, TaskListener listener) throws IOException,
+            InterruptedException {
+        boolean change = false;
+        Run lastBuild = project.getLastBuild();
+        if(lastBuild == null) return true;
+        URLDateAction dates = lastBuild.getAction(URLDateAction.class);
+        if(dates == null) return true;
+
+        for(URLTuple tuple : urls) {
+            String urlString = tuple.getUrl();
+            try {
+                URL url = new URL(urlString);
+                URLConnection conn = url.openConnection();
+                conn.setUseCaches(false);
+
+                long lastMod = conn.getLastModified();
+                long lastBuildMod = dates.getLastModified(urlString);
+                if(lastBuildMod != lastMod) {
+                    listener.getLogger().println(
+                            "Found change: " + urlString + " modified " + new Date(lastMod) + 
+                            " previous modification was " + new Date(lastBuildMod));
+                    change = true;
+                }
+            } 
+            catch (Exception e) {
+                listener.error("Unable to check " + urlString + "\n" + e.getMessage());
+            } 
+        }
+        return change;
+    }
+
+    public static final class URLTuple {
+        private String urlString;
+        public URLTuple(String s) {
+            urlString = s;
+        }
+
+        public String getUrl() {
+            return urlString;
+        }
+    }
+
+    @Extension
+    public static final class DescriptorImpl extends SCMDescriptor<URLSCM> {
 
         public DescriptorImpl() {
             super(URLSCM.class, null);
@@ -171,9 +171,9 @@ public class URLSCM extends hudson.scm.SCM {
         public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
             return true;
         }
-        
+
         public FormValidation doUrlCheck(@QueryParameter final String value)
-                throws IOException, ServletException {
+        throws IOException, ServletException {
             if (!Hudson.getInstance().hasPermission(Hudson.ADMINISTER)) return FormValidation.ok();
             return new FormValidation.URLCheck() {
                 @Override
