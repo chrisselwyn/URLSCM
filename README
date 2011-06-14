@@ -1,0 +1,2 @@
+This is my clone of Michael Donohue's URLSCM Jenkins plugin.
+It has been modified to enable use of username and password from the URL to perform basic authentication on a HTTP(S) URL.
