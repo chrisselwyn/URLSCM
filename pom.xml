@@ -19,4 +19,11 @@
       <name>Michael Donohue</name>
     </developer>
   </developers>
+    <dependencies>
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>1.5</version>
+        </dependency>
+    </dependencies>
 </project>

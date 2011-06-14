@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
@@ -28,15 +29,17 @@ import java.util.Date;
 import javax.servlet.ServletException;
 
 import net.sf.json.JSONObject;
+import org.apache.commons.codec.binary.Base64;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 public class URLSCM extends hudson.scm.SCM {
+
     private final ArrayList<URLTuple> urls = new ArrayList<URLTuple>();
     private final boolean clearWorkspace;
 
     public URLSCM(String[] u, boolean clear) {
-        for(int i = 0; i < u.length; i++) {
+        for (int i = 0; i < u.length; i++) {
             urls.add(new URLTuple(u[i]));
         }
         this.clearWorkspace = clear;
@@ -53,21 +56,20 @@ public class URLSCM extends hudson.scm.SCM {
     @Override
     public boolean checkout(AbstractBuild build, Launcher launcher,
             FilePath workspace, BuildListener listener, File changelogFile)
-    throws IOException, InterruptedException {
-        if(clearWorkspace) {
+            throws IOException, InterruptedException {
+        if (clearWorkspace) {
             workspace.deleteContents();
         }
 
         URLDateAction dates = new URLDateAction(build);
 
-        for(URLTuple tuple : urls) {
+        for (URLTuple tuple : urls) {
             String urlString = tuple.getUrl();
             InputStream is = null;
             OutputStream os = null;
             try {
                 URL url = new URL(urlString);
-                URLConnection conn = url.openConnection();
-                conn.setUseCaches(false);
+                URLConnection conn = makeURLConnection(url);
                 dates.setLastModified(urlString, conn.getLastModified());
                 is = conn.getInputStream();
                 String path = new File(url.getPath()).getName();
@@ -78,14 +80,16 @@ public class URLSCM extends hudson.scm.SCM {
                 while ((i = is.read(buf)) != -1) {
                     os.write(buf, 0, i);
                 }
-            } 
-            catch (Exception e) {
+            } catch (Exception e) {
                 listener.error("Unable to copy " + urlString + "\n" + e.getMessage());
                 return false;
-            }
-            finally {
-                if (is != null) is.close();
-                if (os != null) os.close();
+            } finally {
+                if (is != null) {
+                    is.close();
+                }
+                if (os != null) {
+                    os.close();
+                }
             }
             this.createEmptyChangeLog(changelogFile, listener, "log");
         }
@@ -112,35 +116,56 @@ public class URLSCM extends hudson.scm.SCM {
             InterruptedException {
         boolean change = false;
         Run lastBuild = project.getLastBuild();
-        if(lastBuild == null) return true;
+        if (lastBuild == null) {
+            return true;
+        }
         URLDateAction dates = lastBuild.getAction(URLDateAction.class);
-        if(dates == null) return true;
+        if (dates == null) {
+            return true;
+        }
 
-        for(URLTuple tuple : urls) {
+        for (URLTuple tuple : urls) {
             String urlString = tuple.getUrl();
+            InputStream is = null;
             try {
-                URL url = new URL(urlString);
-                URLConnection conn = url.openConnection();
-                conn.setUseCaches(false);
+                URLConnection conn = makeURLConnection(new URL(urlString));
+
+                is = conn.getInputStream();
 
                 long lastMod = conn.getLastModified();
                 long lastBuildMod = dates.getLastModified(urlString);
-                if(lastBuildMod != lastMod) {
+                if (lastBuildMod != lastMod) {
                     listener.getLogger().println(
-                            "Found change: " + urlString + " modified " + new Date(lastMod) + 
-                            " previous modification was " + new Date(lastBuildMod));
+                            "Found change: " + urlString + " modified " + new Date(lastMod)
+                            + " previous modification was " + new Date(lastBuildMod));
                     change = true;
                 }
-            } 
-            catch (Exception e) {
+            } catch (IOException e) {
                 listener.error("Unable to check " + urlString + "\n" + e.getMessage());
-            } 
+                throw e;
+            } finally {
+                if (is != null) {
+                    is.close();
+                }
+            }
         }
         return change;
     }
 
+    private URLConnection makeURLConnection(URL url) throws IOException {
+        URLConnection conn = url.openConnection();
+        conn.setUseCaches(false);
+        if (url.getUserInfo() != null && conn instanceof HttpURLConnection) {
+            String encodedAuthorization = Base64.encodeBase64URLSafeString(url.getUserInfo().getBytes());
+            conn.setRequestProperty("Authorization", "Basic " + encodedAuthorization);
+        }
+        return conn;
+    }
+
     public static final class URLTuple {
+
         private String urlString;
+
         public URLTuple(String s) {
             urlString = s;
         }
@@ -173,9 +198,12 @@ public class URLSCM extends hudson.scm.SCM {
         }
 
         public FormValidation doUrlCheck(@QueryParameter final String value)
-        throws IOException, ServletException {
-            if (!Hudson.getInstance().hasPermission(Hudson.ADMINISTER)) return FormValidation.ok();
+                throws IOException, ServletException {
+            if (!Hudson.getInstance().hasPermission(Hudson.ADMINISTER)) {
+                return FormValidation.ok();
+            }
             return new FormValidation.URLCheck() {
+
                 @Override
                 protected FormValidation check() throws IOException, ServletException {
                     String url = fixEmpty(value);
@@ -187,7 +215,7 @@ public class URLSCM extends hudson.scm.SCM {
                         return FormValidation.error("Cannot open " + url);
                     }
                     String path = new File(u.getPath()).getName();
-                    if(path.length() == 0) {
+                    if (path.length() == 0) {
                         return FormValidation.error("URL does not contain filename: " + url);
                     }
                     return FormValidation.ok();
@@ -195,5 +223,4 @@ public class URLSCM extends hudson.scm.SCM {
             }.check();
         }
     }
-
 }
