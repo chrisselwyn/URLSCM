@@ -12,8 +12,10 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.scm.ChangeLogParser;
 import hudson.scm.NullChangeLogParser;
+import hudson.scm.PollingResult;
 import hudson.scm.SCM;
 import hudson.scm.SCMDescriptor;
+import hudson.scm.SCMRevisionState;
 import hudson.util.FormValidation;
 
 import java.io.File;
@@ -110,8 +112,7 @@ public class URLSCM extends hudson.scm.SCM {
         return false;
     }
 
-    @Override
-    public boolean pollChanges(AbstractProject project, Launcher launcher,
+    private boolean poll(AbstractProject project, Launcher launcher,
             FilePath workspace, TaskListener listener) throws IOException,
             InterruptedException {
         boolean change = false;
@@ -156,10 +157,36 @@ public class URLSCM extends hudson.scm.SCM {
         URLConnection conn = url.openConnection();
         conn.setUseCaches(false);
         if (url.getUserInfo() != null && conn instanceof HttpURLConnection) {
-            String encodedAuthorization = Base64.encodeBase64URLSafeString(url.getUserInfo().getBytes());
+            String encodedAuthorization = Base64.encodeBase64String(url.getUserInfo().getBytes());
+            encodedAuthorization = stripCRLF(encodedAuthorization);
             conn.setRequestProperty("Authorization", "Basic " + encodedAuthorization);
         }
         return conn;
+    }
+
+    private String stripCRLF(String encodedAuthorization) {
+        if (encodedAuthorization.endsWith("\r\n")) {
+            encodedAuthorization = encodedAuthorization.substring(0, encodedAuthorization.length() - 2);
+        }
+        return encodedAuthorization;
+    }
+
+    @Override
+    public SCMRevisionState calcRevisionsFromBuild(AbstractBuild<?, ?> build,
+            Launcher launcher, TaskListener listener) throws IOException,
+            InterruptedException {
+        // we cannot really calculate a sensible revision state for a filesystem folder
+        // therefore we return NONE and simply ignore the baseline in compareRemoteRevisionWith
+        return SCMRevisionState.NONE;
+    }
+
+    @Override
+    protected PollingResult compareRemoteRevisionWith(AbstractProject<?, ?> project, Launcher launcher, FilePath workspace, TaskListener listener, SCMRevisionState baseline) throws IOException, InterruptedException {
+        if(poll(project, launcher, workspace, listener)) {
+            return PollingResult.SIGNIFICANT;
+        } else {
+            return PollingResult.NO_CHANGES;
+        }
     }
 
     public static final class URLTuple {
