@@ -6,7 +6,6 @@ import hudson.FilePath;
 import hudson.Launcher;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
-import hudson.model.BuildListener;
 import hudson.model.Hudson;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -29,20 +28,21 @@ import java.util.ArrayList;
 import java.util.Date;
 
 import javax.servlet.ServletException;
+import jenkins.model.Jenkins;
 
 import net.sf.json.JSONObject;
 import org.apache.commons.codec.binary.Base64;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
-public class URLSCM extends hudson.scm.SCM {
+public class URLSCM extends SCM {
 
     private final ArrayList<URLTuple> urls = new ArrayList<URLTuple>();
     private final boolean clearWorkspace;
 
     public URLSCM(String[] u, boolean clear) {
-        for (int i = 0; i < u.length; i++) {
-            urls.add(new URLTuple(u[i]));
+        for (String u1 : u) {
+            urls.add(new URLTuple(u1));
         }
         this.clearWorkspace = clear;
     }
@@ -56,8 +56,8 @@ public class URLSCM extends hudson.scm.SCM {
     }
 
     @Override
-    public boolean checkout(AbstractBuild build, Launcher launcher,
-            FilePath workspace, BuildListener listener, File changelogFile)
+    public void checkout(Run<?, ?> build, Launcher launcher,
+            FilePath workspace, TaskListener listener, File changelogFile, SCMRevisionState baseline)
             throws IOException, InterruptedException {
         if (clearWorkspace) {
             workspace.deleteContents();
@@ -78,13 +78,14 @@ public class URLSCM extends hudson.scm.SCM {
                 listener.getLogger().append("Copying " + urlString + " to " + path + "\n");
                 os = workspace.child(path).write();
                 byte[] buf = new byte[8192];
-                int i = 0;
+                int i;
                 while ((i = is.read(buf)) != -1) {
                     os.write(buf, 0, i);
                 }
-            } catch (Exception e) {
+            } catch (IOException e) {
                 listener.error("Unable to copy " + urlString + "\n" + e.getMessage());
-                return false;
+            } catch (InterruptedException e) {
+                listener.error("Unable to copy " + urlString + "\n" + e.getMessage());
             } finally {
                 if (is != null) {
                     is.close();
@@ -96,8 +97,6 @@ public class URLSCM extends hudson.scm.SCM {
             this.createEmptyChangeLog(changelogFile, listener, "log");
         }
         build.addAction(dates);
-
-        return true;
     }
 
     @Override
@@ -110,6 +109,24 @@ public class URLSCM extends hudson.scm.SCM {
         // this plugin does the polling work via the data in the Run
         // the data in the workspace is not used
         return false;
+    }
+
+    @Override
+    public SCMRevisionState calcRevisionsFromBuild(AbstractBuild<?, ?> build,
+            Launcher launcher, TaskListener listener) throws IOException,
+            InterruptedException {
+        // we cannot really calculate a sensible revision state for a filesystem folder
+        // therefore we return NONE and simply ignore the baseline in compareRemoteRevisionWith
+        return SCMRevisionState.NONE;
+    }
+
+    @Override
+    protected PollingResult compareRemoteRevisionWith(AbstractProject<?, ?> project, Launcher launcher, FilePath workspace, TaskListener listener, SCMRevisionState baseline) throws IOException, InterruptedException {
+        if (poll(project, launcher, workspace, listener)) {
+            return PollingResult.SIGNIFICANT;
+        } else {
+            return PollingResult.NO_CHANGES;
+        }
     }
 
     private boolean poll(AbstractProject project, Launcher launcher,
@@ -171,26 +188,10 @@ public class URLSCM extends hudson.scm.SCM {
         return encodedAuthorization;
     }
 
-    @Override
-    public SCMRevisionState calcRevisionsFromBuild(AbstractBuild<?, ?> build,
-            Launcher launcher, TaskListener listener) throws IOException,
-            InterruptedException {
-        // we cannot really calculate a sensible revision state for a filesystem folder
-        // therefore we return NONE and simply ignore the baseline in compareRemoteRevisionWith
-        return SCMRevisionState.NONE;
-    }
-
-    @Override
-    protected PollingResult compareRemoteRevisionWith(AbstractProject<?, ?> project, Launcher launcher, FilePath workspace, TaskListener listener, SCMRevisionState baseline) throws IOException, InterruptedException {
-        if(poll(project, launcher, workspace, listener)) {
-            return PollingResult.SIGNIFICANT;
-        } else {
-            return PollingResult.NO_CHANGES;
-        }
-    }
 
     public static final class URLTuple {
-        private String urlString;
+
+        private final String urlString;
 
         public URLTuple(String s) {
             urlString = s;
@@ -202,13 +203,14 @@ public class URLSCM extends hudson.scm.SCM {
     }
 
     @Extension
-    public static final class DescriptorImpl extends SCMDescriptor<URLSCM> {
+    public static final class URLSCMDescriptorImpl extends SCMDescriptor<URLSCM> {
 
-        public DescriptorImpl() {
+        public URLSCMDescriptorImpl() {
             super(URLSCM.class, null);
             load();
         }
 
+        @Override
         public String getDisplayName() {
             return "URL Copy";
         }
@@ -225,7 +227,7 @@ public class URLSCM extends hudson.scm.SCM {
 
         public FormValidation doUrlCheck(@QueryParameter final String value)
                 throws IOException, ServletException {
-            if (!Hudson.getInstance().hasPermission(Hudson.ADMINISTER)) {
+            if (!Jenkins.getInstance().hasPermission(Hudson.ADMINISTER)) {
                 return FormValidation.ok();
             }
             return new FormValidation.URLCheck() {
@@ -233,7 +235,7 @@ public class URLSCM extends hudson.scm.SCM {
                 @Override
                 protected FormValidation check() throws IOException, ServletException {
                     String url = fixEmpty(value);
-                    URL u = null;
+                    URL u;
                     try {
                         u = new URL(url);
                         open(u);

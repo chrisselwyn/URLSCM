@@ -11,9 +11,9 @@ import javax.servlet.ServletException;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
 
-import hudson.model.AbstractBuild;
 import hudson.model.AbstractModelObject;
 import hudson.model.Action;
+import hudson.model.Run;
 
 public class URLDateAction extends AbstractModelObject implements Action {
     /**
@@ -21,15 +21,15 @@ public class URLDateAction extends AbstractModelObject implements Action {
      */
     private static final long serialVersionUID = 1L;
 
-    private HashMap<String, Long> lastModified = new HashMap<String, Long>();
+    private final HashMap<String, Long> lastModified = new HashMap<String, Long>();
 
-    private final AbstractBuild build;
+    private final Run<?,?> build;
 
-    protected URLDateAction(AbstractBuild build) {
+    protected URLDateAction(Run<?,?> build) {
         this.build = build;
     }
 
-    public AbstractBuild getBuild() {
+    public Run<?,?> getBuild() {
         return build;
     }
 
@@ -56,18 +56,22 @@ public class URLDateAction extends AbstractModelObject implements Action {
         return ret;
     }
 
+    @Override
     public String getDisplayName() {
         return "URL Modification Dates";
     }
 
+    @Override
     public String getIconFileName() {
         return "save.gif";
     }
 
+    @Override
     public String getSearchUrl() {
         return getUrlName();
     }
 
+    @Override
     public String getUrlName() {
         return "urlDates";
     }
@@ -79,6 +83,4 @@ public class URLDateAction extends AbstractModelObject implements Action {
     protected String chooseAction() {
         return "tagForm.jelly";
     }
-
-
 }
