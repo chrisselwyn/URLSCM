@@ -29,7 +29,6 @@ import java.util.ArrayList;
 import java.util.Date;
 
 import javax.servlet.ServletException;
-import jenkins.model.Jenkins;
 
 import net.sf.json.JSONObject;
 import org.apache.commons.codec.binary.Base64;
@@ -191,7 +190,6 @@ public class URLSCM extends hudson.scm.SCM {
     }
 
     public static final class URLTuple {
-Jenkins j;
         private String urlString;
 
         public URLTuple(String s) {
